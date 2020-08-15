@@ -40,6 +40,10 @@ func main() {
 			defer func() {
 				<-mainTicker.C
 			}()
+			if active {
+				return
+			}
+
 			log.Print("Get channel info")
 			startTime, videoID := run(y)
 			if !startTime.IsZero() {
