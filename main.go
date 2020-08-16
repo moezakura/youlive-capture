@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"github.com/moezakura/youlive-capture/utils"
 	"log"
+	"os"
 	"time"
 )
 
@@ -35,26 +37,37 @@ func main() {
 		}
 	}()
 
-	for {
-		func() {
-			defer func() {
-				<-mainTicker.C
-			}()
-			if active {
-				return
-			}
+	go func() {
+		for {
+			func() {
+				defer func() {
+					<-mainTicker.C
+				}()
+				if active {
+					return
+				}
 
-			log.Print("Get channel info")
-			startTime, videoID := run(y)
-			if !startTime.IsZero() {
-				active = true
-				v.SetData(videoID, startTime)
-				log.Printf("Got a live feed start time")
-				log.Printf("It's scheduled to start at %s", utils.ToJST(startTime).Format("15:04:05"))
-			} else {
-				log.Printf("Failed to get a live feed start time")
-			}
-		}()
+				log.Print("Get channel info")
+				startTime, videoID := run(y)
+				if !startTime.IsZero() {
+					active = true
+					v.SetData(videoID, startTime)
+					log.Printf("Got a live feed start time")
+					log.Printf("It's scheduled to start at %s", utils.ToJST(startTime).Format("15:04:05"))
+				} else {
+					log.Printf("Failed to get a live feed start time")
+				}
+			}()
+		}
+	}()
+
+	for {
+		scanner := bufio.NewScanner(os.Stdin)
+		scanner.Scan()
+		input := scanner.Text()
+		if input == "quit" || input == "q" {
+
+		}
 	}
 }
 func run(y *YoutubeAPI) (time.Time, string) {

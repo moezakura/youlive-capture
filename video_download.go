@@ -9,17 +9,20 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 )
 
 type VideoDownload struct {
 	targetVideoID chan string
+	cancelTick    chan struct{}
 	startTicker   *time.Ticker
 }
 
 func NewVideoDownload() *VideoDownload {
 	return &VideoDownload{
 		targetVideoID: make(chan string, 1),
+		cancelTick:    make(chan struct{}, 1),
 		startTicker:   nil,
 	}
 }
@@ -71,6 +74,24 @@ func (v *VideoDownload) download(url string) error {
 	errOutBufferMultiWriter := io.MultiWriter(&errOutBuffer, os.Stderr)
 	cmd.Stdout = stdOutBufferMultiWriter
 	cmd.Stderr = errOutBufferMultiWriter
+	cancelTickCancel := make(chan struct{}, 1)
+	defer func() {
+		close(cancelTickCancel)
+	}()
+
+	go func() {
+		select {
+		case <-v.cancelTick:
+		case <-cancelTickCancel:
+		}
+		process := cmd.Process
+		err := process.Signal(syscall.SIGINT)
+		if err != nil {
+			log.Printf("fatal download quit")
+		}
+		log.Printf("download quit")
+	}()
+
 	err := cmd.Run()
 	if err != nil {
 		return xerrors.Errorf("VideoDownload.downloadWithAnyRetry exec error: %w", err)
@@ -80,6 +101,7 @@ func (v *VideoDownload) download(url string) error {
 	if strings.Contains(out, "This live event will begin in") {
 		return LiveNotStarted
 	}
+	cancelTickCancel <- struct{}{}
 
 	return nil
 }
