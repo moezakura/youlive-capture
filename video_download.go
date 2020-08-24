@@ -14,15 +14,15 @@ import (
 )
 
 type VideoDownload struct {
+	CancelTick    chan struct{}
 	targetVideoID chan string
-	cancelTick    chan struct{}
 	startTicker   *time.Ticker
 }
 
 func NewVideoDownload() *VideoDownload {
 	return &VideoDownload{
+		CancelTick:    make(chan struct{}, 1),
 		targetVideoID: make(chan string, 1),
-		cancelTick:    make(chan struct{}, 1),
 		startTicker:   nil,
 	}
 }
@@ -39,7 +39,13 @@ func (v *VideoDownload) SetData(videoID string, startTime time.Time) {
 }
 
 func (v *VideoDownload) Run() {
-	videoID := <-v.targetVideoID
+	videoID := ""
+	select {
+	case <-v.CancelTick:
+		return
+	case videoID = <-v.targetVideoID:
+
+	}
 	<-v.startTicker.C
 	v.startTicker.Stop()
 	log.Printf("Download start live stream now!")
@@ -81,7 +87,7 @@ func (v *VideoDownload) download(url string) error {
 
 	go func() {
 		select {
-		case <-v.cancelTick:
+		case <-v.CancelTick:
 		case <-cancelTickCancel:
 		}
 		process := cmd.Process

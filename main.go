@@ -4,9 +4,11 @@ import (
 	"bufio"
 	"context"
 	"flag"
+	"fmt"
 	"github.com/moezakura/youlive-capture/utils"
 	"log"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -64,9 +66,11 @@ func main() {
 	for {
 		scanner := bufio.NewScanner(os.Stdin)
 		scanner.Scan()
-		input := scanner.Text()
+		input := strings.Trim(scanner.Text(), " \n\r")
 		if input == "quit" || input == "q" {
-
+			v.CancelTick <- struct{}{}
+			fmt.Println("exit from user")
+			return
 		}
 	}
 }
