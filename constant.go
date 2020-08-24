@@ -5,5 +5,6 @@ import (
 )
 
 var (
-	LiveNotStarted = errors.New("Live not started")
+	LiveNotStarted    = errors.New("Live not started")
+	AlreadyDownloaded = errors.New("Live already downloaded")
 )

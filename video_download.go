@@ -15,6 +15,7 @@ import (
 
 type VideoDownload struct {
 	CancelTick    chan struct{}
+	CompleteTick  chan struct{}
 	targetVideoID chan string
 	startTicker   *time.Ticker
 }
@@ -22,6 +23,7 @@ type VideoDownload struct {
 func NewVideoDownload() *VideoDownload {
 	return &VideoDownload{
 		CancelTick:    make(chan struct{}, 1),
+		CompleteTick:  make(chan struct{}, 1),
 		targetVideoID: make(chan string, 1),
 		startTicker:   nil,
 	}
@@ -59,9 +61,13 @@ func (v *VideoDownload) Run() {
 		<-t.C
 		err := v.download(downloadURL)
 		if err != nil {
-			if xerrors.Is(err, LiveNotStarted) {
+			switch {
+			case xerrors.Is(err, LiveNotStarted):
 				log.Printf("live is not started: %+v", err)
 				continue
+			case xerrors.Is(err, AlreadyDownloaded):
+				v.CompleteTick <- struct{}{}
+				return
 			}
 			log.Printf("download failed: %+v", err)
 			continue
@@ -106,6 +112,9 @@ func (v *VideoDownload) download(url string) error {
 	out := fmt.Sprintf("%s\n%s", stdOutBuffer.String(), errOutBuffer.String())
 	if strings.Contains(out, "This live event will begin in") {
 		return LiveNotStarted
+	}
+	if strings.Contains(out, "already been downloaded and merged") {
+		return AlreadyDownloaded
 	}
 	cancelTickCancel <- struct{}{}
 

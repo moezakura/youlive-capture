@@ -63,10 +63,25 @@ func main() {
 		}
 	}()
 
+	inputLines := make(chan string, 255)
+	go func() {
+		for {
+			scanner := bufio.NewScanner(os.Stdin)
+			scanner.Scan()
+			t := scanner.Text()
+			inputLines <- strings.Trim(t, " \n\r")
+		}
+	}()
+
 	for {
-		scanner := bufio.NewScanner(os.Stdin)
-		scanner.Scan()
-		input := strings.Trim(scanner.Text(), " \n\r")
+		input := ""
+		select {
+		case input = <-inputLines:
+		case <-v.CompleteTick:
+			fmt.Println("Live capture completed!")
+			return
+		}
+
 		if input == "quit" || input == "q" {
 			v.CancelTick <- struct{}{}
 			fmt.Println("exit from user")
