@@ -13,8 +13,9 @@ import (
 )
 
 var (
-	apiKey        = flag.String("api", "", "youtube api key")
-	targetChannel = flag.String("channel", "", "youtube channel ID")
+	apiKey                   = flag.String("api", "", "Youtube api key")
+	targetChannel            = flag.String("channel", "", "Youtube channel ID")
+	downloadCompleteWithExit = flag.Bool("complete-exit", true, "Once the download is complete, it's done.")
 )
 
 func main() {
@@ -79,7 +80,9 @@ func main() {
 		case input = <-inputLines:
 		case <-v.CompleteTick:
 			fmt.Println("Live capture completed!")
-			return
+			if *downloadCompleteWithExit {
+				return
+			}
 		}
 
 		if input == "quit" || input == "q" {
