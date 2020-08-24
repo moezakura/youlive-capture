@@ -15,7 +15,8 @@ import (
 var (
 	apiKey                   = flag.String("api", "", "Youtube api key")
 	targetChannel            = flag.String("channel", "", "Youtube channel ID")
-	downloadCompleteWithExit = flag.Bool("complete-exit", true, "Once the download is complete, it's done.")
+	apiIntervalTime          = flag.String("interval", "3m", "Youtube Data API call interval time")
+	downloadCompleteWithExit = flag.Bool("complete-exit", true, "Once the download is complete, it's done")
 )
 
 func main() {
@@ -28,7 +29,11 @@ func main() {
 		log.Fatal("Api must be specified.")
 	}
 
-	mainTicker := time.NewTicker(3 * time.Minute)
+	intervalTime := getTimeFromText(*apiIntervalTime)
+	mainTicker := time.NewTicker(intervalTime)
+
+	log.Printf("Youtube Data API call interval time: %s", intervalTime.String())
+
 	active := false
 	y := NewYoutubeAPI(*apiKey)
 	v := NewVideoDownload()
@@ -92,6 +97,7 @@ func main() {
 		}
 	}
 }
+
 func run(y *YoutubeAPI) (time.Time, string) {
 	ctx, _ := context.WithTimeout(context.TODO(), 30*time.Second)
 	startTime, videoID, err := y.GetLiveTime(ctx, *targetChannel)
@@ -100,4 +106,18 @@ func run(y *YoutubeAPI) (time.Time, string) {
 		return startTime, ""
 	}
 	return startTime, videoID
+}
+
+func getTimeFromText(timeText string) time.Duration {
+	t := 3 * time.Minute
+	timeUnit, timeNumber, err := utils.GetTimeUnit(timeText)
+	if err != nil {
+		return t
+	}
+
+	if timeNumber <= 0 {
+		return t
+	}
+
+	return timeUnit * time.Duration(timeNumber)
 }
