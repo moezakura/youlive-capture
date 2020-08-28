@@ -13,10 +13,10 @@ import (
 )
 
 var (
-	apiKey                   = flag.String("api", "", "Youtube api key")
-	targetChannel            = flag.String("channel", "", "Youtube channel ID")
-	apiIntervalTime          = flag.String("interval", "3m", "Youtube Data API call interval time")
-	downloadCompleteWithExit = flag.Bool("complete-exit", true, "Once the download is complete, it's done")
+	apiKey          = flag.String("api", "", "Youtube api key")
+	targetChannel   = flag.String("channel", "", "Youtube channel ID")
+	apiIntervalTime = flag.String("interval", "3m", "Youtube Data API call interval time")
+	isInfinity      = flag.Bool("infinity", false, "Find the next delivery when the download is complete")
 )
 
 func main() {
@@ -85,7 +85,7 @@ func main() {
 		case input = <-inputLines:
 		case <-v.CompleteTick:
 			fmt.Println("Live capture completed!")
-			if *downloadCompleteWithExit {
+			if !*isInfinity {
 				return
 			}
 		}
