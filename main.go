@@ -12,11 +12,16 @@ import (
 	"time"
 )
 
+const (
+	version = "0.1.0"
+)
+
 var (
 	apiKey          = flag.String("api", "", "Youtube api key")
 	targetChannel   = flag.String("channel", "", "Youtube channel ID")
 	apiIntervalTime = flag.String("interval", "3m", "Youtube Data API call interval time")
 	isInfinity      = flag.Bool("infinity", false, "Find the next delivery when the download is complete")
+	versionFlag     = flag.Bool("v", false, "print version")
 )
 
 var (
@@ -26,6 +31,11 @@ var (
 
 func main() {
 	flag.Parse()
+
+	if *versionFlag {
+		fmt.Println(version)
+		return
+	}
 
 	if *targetChannel == "" {
 		log.Fatal("Channel must be specified.")
