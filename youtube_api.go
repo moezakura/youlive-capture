@@ -20,10 +20,19 @@ func NewYoutubeAPI(apiKey string) *YoutubeAPI {
 	return y
 }
 
-func (y *YoutubeAPI) GetLiveTime(ctx context.Context, channelID string) (time.Time, string, error) {
+func (y *YoutubeAPI) NewYoutubeService(ctx context.Context) (*youtube.Service, error) {
 	service, err := youtube.NewService(ctx, option.WithAPIKey(y.apiKey))
 	if err != nil {
-		return utils.GetZeroTime(), "", xerrors.Errorf("YoutubeAPI.GetLiveTime youtube.NewService error: %w", err)
+		return nil, xerrors.Errorf("YoutubeAPI.NewYoutubeService youtube.NewService error: %w", err)
+	}
+
+	return service, nil
+}
+
+func (y *YoutubeAPI) GetLiveTime(ctx context.Context, channelID string) (time.Time, string, error) {
+	service, err := y.NewYoutubeService(ctx)
+	if err != nil {
+		return utils.GetZeroTime(), "", xerrors.Errorf("YoutubeAPI.GetLiveTime y.NewYoutubeService error: %w", err)
 	}
 
 	searchService := youtube.NewSearchService(service)
@@ -53,25 +62,35 @@ func (y *YoutubeAPI) GetLiveTime(ctx context.Context, channelID string) (time.Ti
 		}
 
 		if item.Snippet.LiveBroadcastContent == "upcoming" {
-			liveInfo, err := y.getLiveInfo(service, videoID)
+			startTime, err := y.GetLiveStartTime(service, videoID)
 			if err != nil {
-				return utils.GetZeroTime(), "", xerrors.Errorf("YoutubeAPI.GetLiveTime y.getLiveInfo error: %w", err)
+				return utils.GetZeroTime(), "",
+					xerrors.Errorf("YoutubeAPI.GetLiveTime y.GetLiveStartTime error: %w", err)
 			}
-			if len(liveInfo.Items) == 0 {
-				return utils.GetZeroTime(), "", nil
-			}
-			liveInfoItem := liveInfo.Items[0]
-			startTimeStr := liveInfoItem.LiveStreamingDetails.ScheduledStartTime
-			startTime, err := time.Parse("2006-01-02T15:04:05Z(MST)", fmt.Sprintf("%s(UTC)", startTimeStr))
-			if err != nil {
-				return utils.GetZeroTime(), "", xerrors.Errorf("YoutubeAPI.GetLiveTime time.Parse(%s) error: %w", startTimeStr, err)
-			}
-			startTime = startTime.In(time.UTC)
+
 			return startTime, videoID, nil
 		}
 	}
 
 	return utils.GetZeroTime(), "", nil
+}
+
+func (y *YoutubeAPI) GetLiveStartTime(service *youtube.Service, videoID string) (time.Time, error) {
+	liveInfo, err := y.getLiveInfo(service, videoID)
+	if err != nil {
+		return utils.GetZeroTime(), xerrors.Errorf("YoutubeAPI.GetLiveStartTime y.getLiveInfo error: %w", err)
+	}
+	if len(liveInfo.Items) == 0 {
+		return utils.GetZeroTime(), nil
+	}
+	liveInfoItem := liveInfo.Items[0]
+	startTimeStr := liveInfoItem.LiveStreamingDetails.ScheduledStartTime
+	startTime, err := time.Parse("2006-01-02T15:04:05Z(MST)", fmt.Sprintf("%s(UTC)", startTimeStr))
+	if err != nil {
+		return utils.GetZeroTime(), xerrors.Errorf("YoutubeAPI.GetLiveStartTime time.Parse(%s) error: %w",
+			startTimeStr, err)
+	}
+	return startTime.In(time.UTC), nil
 }
 
 func (y *YoutubeAPI) getLiveInfo(service *youtube.Service, videoID string) (*youtube.VideoListResponse, error) {

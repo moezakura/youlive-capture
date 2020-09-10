@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/moezakura/youlive-capture/model"
 	"golang.org/x/xerrors"
 	"io"
 	"log"
@@ -14,15 +15,17 @@ import (
 )
 
 type VideoDownload struct {
-	CancelTick    chan struct{}
-	CompleteTick  chan struct{}
+	CancelTick   chan *model.CancelReason
+	CompleteTick chan struct{}
+	Status       model.DownloadStatus
+
 	targetVideoID chan string
 	startTicker   *time.Ticker
 }
 
 func NewVideoDownload() *VideoDownload {
 	return &VideoDownload{
-		CancelTick:    make(chan struct{}, 1),
+		CancelTick:    make(chan *model.CancelReason, 1),
 		CompleteTick:  make(chan struct{}, 1),
 		targetVideoID: make(chan string, 1),
 		startTicker:   nil,
@@ -41,15 +44,27 @@ func (v *VideoDownload) SetData(videoID string, startTime time.Time) {
 }
 
 func (v *VideoDownload) Run() {
+	v.Status = model.DownloadStatusNotYet
+	defer func() {
+		v.Status = model.DownloadStatusCompleted
+	}()
 	videoID := ""
 	select {
-	case <-v.CancelTick:
+	case reason := <-v.CancelTick:
+		log.Printf("run cancel: %s", reason.Reason)
 		return
 	case videoID = <-v.targetVideoID:
 
 	}
-	<-v.startTicker.C
-	v.startTicker.Stop()
+
+	select {
+	case reason := <-v.CancelTick:
+		v.startTicker.Stop()
+		log.Printf("run cancel: %s", reason.Reason)
+		return
+	case <-v.startTicker.C:
+		v.startTicker.Stop()
+	}
 	log.Printf("Download start live stream now!")
 
 	t := time.NewTicker(time.Second)
@@ -57,6 +72,7 @@ func (v *VideoDownload) Run() {
 		t.Stop()
 	}()
 	downloadURL := fmt.Sprintf("https://www.youtube.com/watch?v=%s", videoID)
+	v.Status = model.DownloadStatusDownloading
 	for {
 		<-t.C
 		err := v.download(downloadURL)
@@ -93,7 +109,8 @@ func (v *VideoDownload) download(url string) error {
 
 	go func() {
 		select {
-		case <-v.CancelTick:
+		case reason := <-v.CancelTick:
+			log.Printf("download cancel: %s", reason.Reason)
 		case <-cancelTickCancel:
 		}
 		process := cmd.Process
