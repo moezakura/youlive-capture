@@ -19,6 +19,11 @@ var (
 	isInfinity      = flag.Bool("infinity", false, "Find the next delivery when the download is complete")
 )
 
+var (
+	active     bool
+	mainTicker *time.Ticker
+)
+
 func main() {
 	flag.Parse()
 
@@ -30,11 +35,11 @@ func main() {
 	}
 
 	intervalTime := getTimeFromText(*apiIntervalTime)
-	mainTicker := time.NewTicker(intervalTime)
+	mainTicker = time.NewTicker(intervalTime)
 
 	log.Printf("Youtube Data API call interval time: %s", intervalTime.String())
 
-	active := false
+	active = false
 	y := NewYoutubeAPI(*apiKey)
 	v := NewVideoDownload()
 
@@ -47,25 +52,7 @@ func main() {
 
 	go func() {
 		for {
-			func() {
-				defer func() {
-					<-mainTicker.C
-				}()
-				if active {
-					return
-				}
-
-				log.Print("Get channel info")
-				startTime, videoID := run(y)
-				if !startTime.IsZero() {
-					active = true
-					v.SetData(videoID, startTime)
-					log.Printf("Got a live feed start time")
-					log.Printf("It's scheduled to start at %s", utils.ToJST(startTime).Format("15:04:05"))
-				} else {
-					log.Printf("Failed to get a live feed start time")
-				}
-			}()
+			liveLoop(y, v)
 		}
 	}()
 
@@ -95,6 +82,26 @@ func main() {
 			fmt.Println("exit from user")
 			return
 		}
+	}
+}
+
+func liveLoop(youtubeAPI *YoutubeAPI, videoDownload *VideoDownload) {
+	defer func() {
+		<-mainTicker.C
+	}()
+	if active {
+		return
+	}
+
+	log.Print("Get channel info")
+	startTime, videoID := run(youtubeAPI)
+	if !startTime.IsZero() {
+		active = true
+		videoDownload.SetData(videoID, startTime)
+		log.Printf("Got a live feed start time")
+		log.Printf("It's scheduled to start at %s", utils.ToJST(startTime).Format("15:04:05"))
+	} else {
+		log.Printf("Failed to get a live feed start time")
 	}
 }
 
