@@ -51,16 +51,16 @@ func (v *VideoDownload) Run() {
 	videoID := ""
 	select {
 	case reason := <-v.CancelTick:
-		log.Printf("run cancel: %s", reason.Reason)
+		log.Printf("run cancel (wait video id): %s", reason.Reason)
 		return
 	case videoID = <-v.targetVideoID:
-
+		log.Printf("Confirm video id: %s", videoID)
 	}
 
 	select {
 	case reason := <-v.CancelTick:
 		v.startTicker.Stop()
-		log.Printf("run cancel: %s", reason.Reason)
+		log.Printf("run cancel (wait timer): %s", reason.Reason)
 		return
 	case <-v.startTicker.C:
 		v.startTicker.Stop()
