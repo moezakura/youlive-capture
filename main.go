@@ -140,9 +140,15 @@ func liveLoop(youtubeAPI *YoutubeAPI, videoDownload *VideoDownload) {
 		active = true
 		videoDownload.SetData(videoID, startTime)
 		log.Printf("Got a live feed start time")
-		log.Printf("It's scheduled to start at %s (id: %s)",
-			utils.ToJST(startTime).Format("01/02 15:04:05"),
-			videoID)
+
+		now := time.Now()
+		t := utils.ToJST(startTime)
+		ft := t.Format("01/02 15:04:05")
+		if now.Year() != t.Year() {
+			ft = t.Format("2006/01/02 15:04:05")
+		}
+
+		log.Printf("It's scheduled to start at %s (id: %s)", ft, videoID)
 	} else {
 		log.Printf("Failed to get a live feed start time")
 	}
