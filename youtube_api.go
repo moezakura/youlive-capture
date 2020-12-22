@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"time"
+
 	"github.com/moezakura/youlive-capture/utils"
 	"golang.org/x/xerrors"
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
-	"time"
 )
 
 type YoutubeAPI struct {
@@ -68,6 +70,11 @@ func (y *YoutubeAPI) GetLiveTime(ctx context.Context, channelID string) (time.Ti
 					xerrors.Errorf("YoutubeAPI.GetLiveTime y.GetLiveStartTime error: %w", err)
 			}
 
+			// 30分以上未来であればスキップする
+			if y.isOverTime(startTime, videoID) {
+				return utils.GetZeroTime(), "", nil
+			}
+
 			return startTime, videoID, nil
 		}
 	}
@@ -105,4 +112,17 @@ func (y *YoutubeAPI) getLiveInfo(service *youtube.Service, videoID string) (*you
 		return nil, xerrors.Errorf("YoutubeAPI.getLiveInfo req.Do error: %w", err)
 	}
 	return res, nil
+}
+
+// isOverTime - 現在時刻と30分以上かけ離れているか
+func (y *YoutubeAPI) isOverTime(t time.Time, videoID string) bool {
+	startTimeUnix := t.Unix()
+	nowUnix := time.Now().Unix()
+	timeDiff := nowUnix - startTimeUnix
+	if timeDiff < -(30 * 60) {
+		d := time.Duration(timeDiff) * time.Second
+		log.Printf("skip live (over 30m) (diff: %s) ID: %s", d.String(), videoID)
+		return true
+	}
+	return false
 }
